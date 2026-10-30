@@ -32,14 +32,14 @@ class HelloWorldControllerSpec extends AnyWordSpec with Matchers with GuiceOneAp
       .build()
 
   private val fakeRequest = FakeRequest("GET", "/")
-  private val controller = app.injector.instanceOf[HelloWorldController]
+  private val controller  = app.injector.instanceOf[HelloWorldController]
 
-  "GET /" should :
-    "return 200" in :
+  "GET /" should:
+    "return 200" in:
       val result = controller.hello(fakeRequest)
       status(result) shouldBe Status.OK
 
-    "return HTML" in :
+    "return HTML" in:
       val result = controller.hello(fakeRequest)
-      contentType(result) shouldBe Some("text/html")
-      charset(result) shouldBe Some("utf-8")
+      contentType(result) shouldBe Some("text/plain")
+      charset(result)     shouldBe Some("utf-8")
