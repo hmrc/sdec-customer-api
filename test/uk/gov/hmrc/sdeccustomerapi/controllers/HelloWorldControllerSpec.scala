@@ -19,27 +19,83 @@ package uk.gov.hmrc.sdeccustomerapi.controllers
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.play.guice.GuiceOneAppPerSuite
+import pdi.jwt.*
 import play.api.Application
 import play.api.http.Status
 import play.api.inject.guice.GuiceApplicationBuilder
+import play.api.libs.json.Json
 import play.api.test.Helpers.*
 import play.api.test.{FakeRequest, Helpers}
 
+import java.time.Instant
+
 class HelloWorldControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppPerSuite:
+
+  private val secret = "secretKey"
 
   override def fakeApplication(): Application =
     new GuiceApplicationBuilder()
       .build()
 
-  private val fakeRequest = FakeRequest("GET", "/")
-  private val controller  = app.injector.instanceOf[HelloWorldController]
+  private val controller = app.injector.instanceOf[HelloWorldController]
 
-  "GET /" should:
-    "return 200" in:
-      val result = controller.hello(fakeRequest)
-      status(result) shouldBe Status.OK
+  private val payload = Json.obj(
+    "internalId"      -> "12345",
+    "firstName"       -> "John",
+    "lastName"        -> "Smith",
+    "email"           -> "john.smith@example.com",
+    "phoneNumber"     -> None,
+    "nino"            -> "WM111111D",
+    "confidenceLevel" -> 250
+  )
 
-    "return HTML" in:
-      val result = controller.hello(fakeRequest)
-      contentType(result) shouldBe Some("text/plain")
-      charset(result)     shouldBe Some("utf-8")
+  private def createToken(
+    expiry:        Long = Instant.now().plusSeconds(3600).getEpochSecond,
+    signingSecret: String = secret
+  ): String =
+    val claim = JwtClaim(
+      payload.toString,
+      expiration = Some(expiry)
+    )
+
+    Jwt.encode(
+      claim,
+      signingSecret,
+      JwtAlgorithm.HS256
+    )
+
+  private def requestWithToken(token: String) =
+    FakeRequest("GET", "/hello-world")
+      .withHeaders("Authorization" -> s"Bearer $token")
+
+  private def requestWithoutToken =
+    FakeRequest("GET", "/hello-world")
+
+  "GET /hello-world" should:
+    "return 200 when a valid JWT is supplied" in:
+      val token  = createToken()
+      val result = controller.hello(requestWithToken(token))
+
+      status(result)          shouldBe Status.OK
+      contentAsString(result) shouldBe "Hello John"
+
+    "return 401 when the Authorization header is missing" in:
+      val result = controller.hello(requestWithoutToken)
+
+      status(result) shouldBe Status.UNAUTHORIZED
+
+    "return 401 when the JWT has expired" in:
+      val expiredToken = createToken(
+        expiry = Instant.now().minusSeconds(3600).getEpochSecond
+      )
+
+      val result = controller.hello(requestWithToken(expiredToken))
+
+      status(result) shouldBe Status.UNAUTHORIZED
+
+    "return 401 when the JWT signature cannot be verified" in:
+      val token = createToken(signingSecret = "wrongSecret")
+
+      val result = controller.hello(requestWithToken(token))
+
+      status(result) shouldBe Status.UNAUTHORIZED

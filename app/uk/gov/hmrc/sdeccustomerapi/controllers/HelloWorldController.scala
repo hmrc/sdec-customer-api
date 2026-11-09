@@ -16,16 +16,21 @@
 
 package uk.gov.hmrc.sdeccustomerapi.controllers
 
+import cats.effect.IO
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
+import uk.gov.hmrc.sdeccustomerapi.infrastructure.AuthenticatedIOActionBuilder
 
 import javax.inject.{Inject, Singleton}
 
 @Singleton()
 class HelloWorldController @Inject() (
-  cc: ControllerComponents
-) extends BackendController(cc):
+  cc:         ControllerComponents,
+  authAction: AuthenticatedIOActionBuilder
+) extends BackendController(cc) {
 
-  val hello: Action[AnyContent] =
-    Action:
-      implicit request => Ok("Hello world")
+  def hello: Action[AnyContent] =
+    authAction.asyncIO { request =>
+      IO.pure(Ok(s"Hello ${request.user.firstName.getOrElse("world")}"))
+    }
+}
