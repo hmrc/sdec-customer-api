@@ -24,13 +24,13 @@ import uk.gov.hmrc.sdeccustomerapi.infrastructure.AuthenticatedIOActionBuilder
 import javax.inject.{Inject, Singleton}
 
 @Singleton()
-class HelloWorldController @Inject() (
+class CustomerController @Inject() (
   cc:         ControllerComponents,
   authAction: AuthenticatedIOActionBuilder
 ) extends BackendController(cc) {
 
-  def hello: Action[AnyContent] =
+  def getCustomer: Action[AnyContent] =
     authAction.asyncIO { request =>
-      IO.pure(Ok(s"Hello ${request.user.firstName.getOrElse("world")}"))
+      IO.pure(Ok(s"Hello ${request.user.firstName.getOrElse("customer")}"))
     }
 }

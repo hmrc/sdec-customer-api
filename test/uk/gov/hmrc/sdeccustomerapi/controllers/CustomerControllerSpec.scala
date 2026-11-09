@@ -29,7 +29,7 @@ import play.api.test.{FakeRequest, Helpers}
 
 import java.time.Instant
 
-class HelloWorldControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppPerSuite:
+class CustomerControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppPerSuite:
 
   private val secret = "secretKey"
 
@@ -37,7 +37,7 @@ class HelloWorldControllerSpec extends AnyWordSpec with Matchers with GuiceOneAp
     new GuiceApplicationBuilder()
       .build()
 
-  private val controller = app.injector.instanceOf[HelloWorldController]
+  private val controller = app.injector.instanceOf[CustomerController]
 
   private val payload = Json.obj(
     "internalId"      -> "12345",
@@ -65,22 +65,22 @@ class HelloWorldControllerSpec extends AnyWordSpec with Matchers with GuiceOneAp
     )
 
   private def requestWithToken(token: String) =
-    FakeRequest("GET", "/hello-world")
+    FakeRequest("GET", "/customer")
       .withHeaders("Authorization" -> s"Bearer $token")
 
   private def requestWithoutToken =
-    FakeRequest("GET", "/hello-world")
+    FakeRequest("GET", "/customer")
 
-  "GET /hello-world" should:
+  "GET /customer" should:
     "return 200 when a valid JWT is supplied" in:
       val token  = createToken()
-      val result = controller.hello(requestWithToken(token))
+      val result = controller.getCustomer(requestWithToken(token))
 
       status(result)          shouldBe Status.OK
       contentAsString(result) shouldBe "Hello John"
 
     "return 401 when the Authorization header is missing" in:
-      val result = controller.hello(requestWithoutToken)
+      val result = controller.getCustomer(requestWithoutToken)
 
       status(result) shouldBe Status.UNAUTHORIZED
 
@@ -89,13 +89,13 @@ class HelloWorldControllerSpec extends AnyWordSpec with Matchers with GuiceOneAp
         expiry = Instant.now().minusSeconds(3600).getEpochSecond
       )
 
-      val result = controller.hello(requestWithToken(expiredToken))
+      val result = controller.getCustomer(requestWithToken(expiredToken))
 
       status(result) shouldBe Status.UNAUTHORIZED
 
     "return 401 when the JWT signature cannot be verified" in:
       val token = createToken(signingSecret = "wrongSecret")
 
-      val result = controller.hello(requestWithToken(token))
+      val result = controller.getCustomer(requestWithToken(token))
 
       status(result) shouldBe Status.UNAUTHORIZED
