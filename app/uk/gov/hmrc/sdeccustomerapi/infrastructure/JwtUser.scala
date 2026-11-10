@@ -18,7 +18,7 @@ package uk.gov.hmrc.sdeccustomerapi.infrastructure
 
 import play.api.libs.json.*
 
-case class JwtUser(
+final case class JwtUser(
   internalId:      Option[String],
   firstName:       Option[String],
   lastName:        Option[String],
