@@ -16,27 +16,27 @@
 
 package uk.gov.hmrc.sdeccustomerapi.infrastructure
 
-import cats.effect.IO
-import cats.effect.unsafe.IORuntime
 import jakarta.inject.{Inject, Singleton}
 import pdi.jwt.*
 import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.*
 
+import scala.concurrent.Future
+
 @Singleton
-class AuthenticatedIOActionBuilder @Inject() (
+class AuthenticatedActionBuilder @Inject() (
   cc: ControllerComponents
 ) extends AbstractController(cc) {
 
   private val secret = "secretKey"
 
-  def asyncIO(
-    block: AuthenticatedRequest[AnyContent] => IO[Result]
+  def async(
+    block: AuthenticatedRequest[AnyContent] => Future[Result]
   ): Action[AnyContent] =
     Action.async(cc.parsers.default) { request =>
       validateRequest(request) match {
         case Left(error) =>
-          IO.pure(error).unsafeToFuture()(IORuntime.global)
+          Future.successful(error)
 
         case Right(user) =>
           block(
@@ -44,7 +44,7 @@ class AuthenticatedIOActionBuilder @Inject() (
               user,
               request
             )
-          ).unsafeToFuture()(IORuntime.global)
+          )
       }
     }
 

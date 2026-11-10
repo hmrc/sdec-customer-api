@@ -7,8 +7,6 @@ object AppDependencies {
   private val frontendPlayVersion = "13.16.0"
   private val playTestVersion     = "7.0.2"
   private val scalaTestVersion    = "3.2.20"
-  private val catsEffectVersion   = "3.7.0"
-  private val log4catsVersion     = "2.6.0"
   private val logbackVersion      = "1.4.11"
   private val h2Version           = "2.5.250"
   private val doobieVersion       = "1.0.0-RC10"
@@ -18,10 +16,7 @@ object AppDependencies {
   val compile = Seq(
     "uk.gov.hmrc"          %% "bootstrap-backend-play-30"  % bootstrapVersion,
     "uk.gov.hmrc"          %% "play-frontend-hmrc-play-30" % frontendPlayVersion,
-    "org.typelevel"        %% "cats-effect"                % catsEffectVersion,
     "ch.qos.logback"        % "logback-classic"            % logbackVersion,
-    "org.typelevel"        %% "log4cats-core"              % log4catsVersion,
-    "org.typelevel"        %% "log4cats-slf4j"             % log4catsVersion,
     "org.flywaydb"          % "flyway-core"                % flywayVersion,
     "com.github.jwt-scala" %% "jwt-play-json"              % jwtVersion
   )

@@ -16,21 +16,21 @@
 
 package uk.gov.hmrc.sdeccustomerapi.controllers
 
-import cats.effect.IO
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
-import uk.gov.hmrc.sdeccustomerapi.infrastructure.AuthenticatedIOActionBuilder
+import uk.gov.hmrc.sdeccustomerapi.infrastructure.AuthenticatedActionBuilder
 
 import javax.inject.{Inject, Singleton}
+import scala.concurrent.Future
 
 @Singleton()
 class CustomerController @Inject() (
   cc:         ControllerComponents,
-  authAction: AuthenticatedIOActionBuilder
+  authAction: AuthenticatedActionBuilder
 ) extends BackendController(cc) {
 
   def getCustomer: Action[AnyContent] =
-    authAction.asyncIO { request =>
-      IO.pure(Ok(s"Hello ${request.user.firstName.getOrElse("customer")}"))
+    authAction.async { request =>
+      Future.successful(Ok(s"Hello ${request.user.firstName.getOrElse("customer")}"))
     }
 }
