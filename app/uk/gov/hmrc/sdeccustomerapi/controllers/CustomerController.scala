@@ -30,7 +30,7 @@ class CustomerController @Inject() (
 ) extends BackendController(cc) {
 
   def getCustomer: Action[AnyContent] =
-    authAction.async { request =>
-      Future.successful(Ok(s"Hello ${request.user.firstName.getOrElse("customer")}"))
+    authAction.async { _ =>
+      Future.successful(Ok(s"Hello customer"))
     }
 }

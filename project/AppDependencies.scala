@@ -10,15 +10,15 @@ object AppDependencies {
   private val logbackVersion      = "1.4.11"
   private val h2Version           = "2.5.250"
   private val doobieVersion       = "1.0.0-RC10"
-  private val flywayVersion       = "10.17.0"
   private val jwtVersion          = "12.0.0"
+  private val nimbusVersion       = "10.10"
 
   val compile = Seq(
     "uk.gov.hmrc"          %% "bootstrap-backend-play-30"  % bootstrapVersion,
     "uk.gov.hmrc"          %% "play-frontend-hmrc-play-30" % frontendPlayVersion,
     "ch.qos.logback"        % "logback-classic"            % logbackVersion,
-    "org.flywaydb"          % "flyway-core"                % flywayVersion,
-    "com.github.jwt-scala" %% "jwt-play-json"              % jwtVersion
+    "com.github.jwt-scala" %% "jwt-play-json"              % jwtVersion,
+    "com.nimbusds"          % "nimbus-jose-jwt"            % nimbusVersion
   )
 
   val test = Seq(

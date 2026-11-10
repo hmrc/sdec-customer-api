@@ -16,19 +16,18 @@
 
 package uk.gov.hmrc.sdeccustomerapi.infrastructure
 
+import com.nimbusds.jwt.JWTClaimsSet
 import jakarta.inject.{Inject, Singleton}
-import pdi.jwt.*
-import play.api.libs.json.{JsValue, Json}
+import play.api.libs.json.Json
 import play.api.mvc.*
 
 import scala.concurrent.Future
 
 @Singleton
 class AuthenticatedActionBuilder @Inject() (
-  cc: ControllerComponents
+  cc:           ControllerComponents,
+  jwtValidator: JwtValidator
 ) extends AbstractController(cc) {
-
-  private val secret = "secretKey"
 
   def async(
     block: AuthenticatedRequest[AnyContent] => Future[Result]
@@ -38,10 +37,10 @@ class AuthenticatedActionBuilder @Inject() (
         case Left(error) =>
           Future.successful(error)
 
-        case Right(user) =>
+        case Right(claims) =>
           block(
             new AuthenticatedRequest(
-              user,
+              claims,
               request
             )
           )
@@ -50,13 +49,19 @@ class AuthenticatedActionBuilder @Inject() (
 
   private def validateRequest(
     request: Request[AnyContent]
-  ): Either[Result, JwtUser] =
+  ): Either[Result, JWTClaimsSet] =
     for {
-      token <- extractToken(request)
-      json  <- decodeToken(token)
-      user  <- parseUser(json)
-      valid <- validateConfidenceLevel(user)
-    } yield valid
+      token  <- extractToken(request)
+      claims <- jwtValidator
+                  .validate(token)
+                  .toEither
+                  .left
+                  .map { _ =>
+                    Unauthorized(
+                      Json.obj("message" -> "Invalid bearer token")
+                    )
+                  }
+    } yield claims
 
   private def extractToken(
     request: Request[AnyContent]
@@ -72,53 +77,4 @@ class AuthenticatedActionBuilder @Inject() (
           )
         )
       )
-
-  private def decodeToken(
-    token: String
-  ): Either[Result, JsValue] =
-    JwtJson
-      .decodeJson(
-        token,
-        secret,
-        Seq(JwtAlgorithm.HS256)
-      )
-      .toEither
-      .left
-      .map { _ =>
-        Unauthorized(
-          Json.obj(
-            "message" -> "Invalid bearer token"
-          )
-        )
-      }
-
-  private def parseUser(
-    json: JsValue
-  ): Either[Result, JwtUser] =
-    json
-      .validate[JwtUser]
-      .asEither
-      .left
-      .map { _ =>
-        Unauthorized(
-          Json.obj(
-            "message" -> "Invalid JWT payload"
-          )
-        )
-      }
-
-  private def validateConfidenceLevel(
-    user: JwtUser
-  ): Either[Result, JwtUser] =
-    if user.confidenceLevel >= 250 then {
-      Right(user)
-    } else {
-      Left(
-        BadRequest(
-          Json.obj(
-            "message" -> "Confidence level must be >= 250"
-          )
-        )
-      )
-    }
 }

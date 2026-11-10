@@ -16,53 +16,105 @@
 
 package uk.gov.hmrc.sdeccustomerapi.controllers
 
+import com.nimbusds.jose.crypto.RSASSASigner
+import com.nimbusds.jose.jwk.{JWKSet, KeyUse, RSAKey}
+import com.nimbusds.jose.{JOSEObjectType, JWSAlgorithm, JWSHeader}
+import com.nimbusds.jwt.{JWTClaimsSet, SignedJWT}
+import com.sun.net.httpserver.HttpServer
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.play.guice.GuiceOneAppPerSuite
-import pdi.jwt.*
 import play.api.Application
 import play.api.http.Status
 import play.api.inject.guice.GuiceApplicationBuilder
-import play.api.libs.json.Json
 import play.api.test.Helpers.*
 import play.api.test.{FakeRequest, Helpers}
 
+import java.net.InetSocketAddress
+import java.security.interfaces.{RSAPrivateKey, RSAPublicKey}
+import java.security.{KeyPair, KeyPairGenerator}
 import java.time.Instant
+import java.util.Date
 
-class CustomerControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppPerSuite:
+class CustomerControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppPerSuite with BeforeAndAfterAll:
 
-  private val secret = "secretKey"
+  private val testIssuer   = "https://test-issuer.example.com"
+  private val testAudience = "test-client"
+
+  private val keyPair: KeyPair =
+    val generator = KeyPairGenerator.getInstance("RSA")
+    generator.initialize(2048)
+    generator.generateKeyPair()
+
+  private val publicJwk =
+    new RSAKey.Builder(
+      keyPair.getPublic.asInstanceOf[RSAPublicKey]
+    )
+      .keyUse(KeyUse.SIGNATURE)
+      .algorithm(JWSAlgorithm.RS256)
+      .keyID("test-key")
+      .build()
+
+  private val jwksServer: HttpServer =
+    val server =
+      HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0)
+
+    server.createContext(
+      "/.well-known/jwks.json",
+      exchange =>
+        val response =
+          new JWKSet(publicJwk).toString.getBytes("UTF-8")
+
+        exchange.getResponseHeaders
+          .set("Content-Type", "application/json")
+
+        exchange.sendResponseHeaders(200, response.length)
+
+        val output = exchange.getResponseBody
+        output.write(response)
+        output.close()
+    )
+
+    server.start()
+    server
+
+  private val testJwksUrl = s"http://127.0.0.1:${jwksServer.getAddress.getPort}/.well-known/jwks.json"
+
+  private def createToken(
+    expiry:     Instant = Instant.now().plusSeconds(3600),
+    signingKey: RSAPrivateKey = keyPair.getPrivate.asInstanceOf[RSAPrivateKey]
+  ): String =
+    val claims =
+      new JWTClaimsSet.Builder()
+        .issuer(testIssuer)
+        .audience(testAudience)
+        .subject("test-user")
+        .expirationTime(Date.from(expiry))
+        .build()
+
+    val header =
+      new JWSHeader.Builder(JWSAlgorithm.RS256)
+        .keyID("test-key")
+        .`type`(JOSEObjectType.JWT)
+        .build()
+
+    val jwt = new SignedJWT(header, claims)
+
+    jwt.sign(new RSASSASigner(signingKey))
+
+    jwt.serialize()
 
   override def fakeApplication(): Application =
     new GuiceApplicationBuilder()
+      .configure(
+        "govOne.issuer"   -> testIssuer,
+        "govOne.audience" -> testAudience,
+        "govOne.jwksUrl"  -> testJwksUrl
+      )
       .build()
 
   private val controller = app.injector.instanceOf[CustomerController]
-
-  private val payload = Json.obj(
-    "internalId"      -> "12345",
-    "firstName"       -> "John",
-    "lastName"        -> "Smith",
-    "email"           -> "john.smith@example.com",
-    "phoneNumber"     -> None,
-    "nino"            -> "WM111111D",
-    "confidenceLevel" -> 250
-  )
-
-  private def createToken(
-    expiry:        Long = Instant.now().plusSeconds(3600).getEpochSecond,
-    signingSecret: String = secret
-  ): String =
-    val claim = JwtClaim(
-      payload.toString,
-      expiration = Some(expiry)
-    )
-
-    Jwt.encode(
-      claim,
-      signingSecret,
-      JwtAlgorithm.HS256
-    )
 
   private def requestWithToken(token: String) =
     FakeRequest("GET", "/customer")
@@ -77,7 +129,7 @@ class CustomerControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppP
       val result = controller.getCustomer(requestWithToken(token))
 
       status(result)          shouldBe Status.OK
-      contentAsString(result) shouldBe "Hello John"
+      contentAsString(result) shouldBe "Hello customer"
 
     "return 401 when the Authorization header is missing" in:
       val result = controller.getCustomer(requestWithoutToken)
@@ -86,7 +138,7 @@ class CustomerControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppP
 
     "return 401 when the JWT has expired" in:
       val expiredToken = createToken(
-        expiry = Instant.now().minusSeconds(3600).getEpochSecond
+        expiry = Instant.now().minusSeconds(3600)
       )
 
       val result = controller.getCustomer(requestWithToken(expiredToken))
@@ -94,8 +146,23 @@ class CustomerControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppP
       status(result) shouldBe Status.UNAUTHORIZED
 
     "return 401 when the JWT signature cannot be verified" in:
-      val token = createToken(signingSecret = "wrongSecret")
+      val wrongKeyPair = KeyPairGenerator.getInstance("RSA")
+      wrongKeyPair.initialize(2048)
+
+      val wrongPrivateKey =
+        wrongKeyPair
+          .generateKeyPair()
+          .getPrivate
+          .asInstanceOf[RSAPrivateKey]
+
+      val token = createToken(signingKey = wrongPrivateKey)
 
       val result = controller.getCustomer(requestWithToken(token))
 
       status(result) shouldBe Status.UNAUTHORIZED
+
+  override def afterAll(): Unit =
+    try
+      jwksServer.stop(0)
+    finally
+      super.afterAll()

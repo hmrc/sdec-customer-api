@@ -16,9 +16,10 @@
 
 package uk.gov.hmrc.sdeccustomerapi.infrastructure
 
+import com.nimbusds.jwt.JWTClaimsSet
 import play.api.mvc.*
 
 class AuthenticatedRequest[A](
-  val user: JwtUser,
-  request:  Request[A]
+  val claims: JWTClaimsSet,
+  request:    Request[A]
 ) extends WrappedRequest[A](request)
