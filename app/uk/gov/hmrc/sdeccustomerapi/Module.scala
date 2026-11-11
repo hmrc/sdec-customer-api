@@ -18,7 +18,7 @@ package uk.gov.hmrc.sdeccustomerapi
 
 import play.api.inject.{Binding, Module as AppModule}
 import play.api.{Configuration, Environment}
-import uk.gov.hmrc.sdeccustomerapi.infrastructure.JwtValidator
+import uk.gov.hmrc.sdeccustomerapi.infrastructure.{JwtValidator, TokenValidator}
 
 import java.net.URL
 import java.time.Clock
@@ -41,7 +41,7 @@ class Module extends AppModule:
     val jwksUrl  = new URL(configuration.get[String](s"$configPrefix.jwksUrl"))
 
     bind[Clock].toInstance(Clock.systemDefaultZone) ::
-      bind[JwtValidator].toInstance(
+      bind[TokenValidator].toInstance(
         new JwtValidator(issuer, audience, jwksUrl)
       ) ::
       Nil

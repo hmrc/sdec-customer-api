@@ -8,8 +8,6 @@ object AppDependencies {
   private val playTestVersion     = "7.0.2"
   private val scalaTestVersion    = "3.2.20"
   private val logbackVersion      = "1.4.11"
-  private val h2Version           = "2.5.250"
-  private val doobieVersion       = "1.0.0-RC10"
   private val jwtVersion          = "12.0.0"
   private val nimbusVersion       = "10.10"
 

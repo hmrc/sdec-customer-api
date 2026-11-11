@@ -28,7 +28,7 @@ final class JwtValidator(
   issuer:   String,
   audience: String,
   jwksUrl:  URL
-) {
+) extends TokenValidator {
 
   private val keySelector =
     JWSAlgorithmFamilyJWSKeySelector

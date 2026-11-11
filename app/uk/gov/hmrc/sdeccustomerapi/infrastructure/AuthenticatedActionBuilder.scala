@@ -26,7 +26,7 @@ import scala.concurrent.Future
 @Singleton
 class AuthenticatedActionBuilder @Inject() (
   cc:           ControllerComponents,
-  jwtValidator: JwtValidator
+  jwtValidator: TokenValidator
 ) extends AbstractController(cc) {
 
   def async(
