@@ -1,3 +1,3 @@
 # microservice specific routes
 
-GET        /hello-world             uk.gov.hmrc.sdeccustomerapi.controllers.HelloWorldController.hello
+GET        /customer             uk.gov.hmrc.sdeccustomerapi.controllers.CustomerController.getCustomer

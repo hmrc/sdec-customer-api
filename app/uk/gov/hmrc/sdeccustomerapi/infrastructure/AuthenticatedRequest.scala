@@ -14,18 +14,12 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.sdeccustomerapi.controllers
+package uk.gov.hmrc.sdeccustomerapi.infrastructure
 
-import play.api.mvc.{Action, AnyContent, ControllerComponents}
-import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
+import com.nimbusds.jwt.JWTClaimsSet
+import play.api.mvc.*
 
-import javax.inject.{Inject, Singleton}
-
-@Singleton()
-class HelloWorldController @Inject() (
-  cc: ControllerComponents
-) extends BackendController(cc):
-
-  val hello: Action[AnyContent] =
-    Action:
-      implicit request => Ok("Hello world")
+class AuthenticatedRequest[A](
+  val claims: JWTClaimsSet,
+  request:    Request[A]
+) extends WrappedRequest[A](request)

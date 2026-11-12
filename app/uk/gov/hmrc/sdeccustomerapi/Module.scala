@@ -18,7 +18,9 @@ package uk.gov.hmrc.sdeccustomerapi
 
 import play.api.inject.{Binding, Module as AppModule}
 import play.api.{Configuration, Environment}
+import uk.gov.hmrc.sdeccustomerapi.infrastructure.{JwtValidator, TokenValidator}
 
+import java.net.URL
 import java.time.Clock
 
 class Module extends AppModule:
@@ -27,5 +29,19 @@ class Module extends AppModule:
     environment:   Environment,
     configuration: Configuration
   ): Seq[Binding[_]] =
-    bind[Clock].toInstance(Clock.systemDefaultZone) :: // inject if current time needs to be controlled in unit tests
+
+    val useSimulator =
+      configuration.getOptional[Boolean]("govOne.useSimulator").getOrElse(false)
+
+    val configPrefix =
+      if useSimulator then "govOneSimulator" else "govOne"
+
+    val issuer   = configuration.get[String](s"$configPrefix.issuer")
+    val audience = configuration.get[String](s"$configPrefix.audience")
+    val jwksUrl  = new URL(configuration.get[String](s"$configPrefix.jwksUrl"))
+
+    bind[Clock].toInstance(Clock.systemDefaultZone) ::
+      bind[TokenValidator].toInstance(
+        new JwtValidator(issuer, audience, jwksUrl)
+      ) ::
       Nil
