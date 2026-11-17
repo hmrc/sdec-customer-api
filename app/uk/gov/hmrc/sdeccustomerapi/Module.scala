@@ -23,7 +23,7 @@ import uk.gov.hmrc.sdeccustomerapi.infrastructure.{JwtValidator, TokenValidator}
 import java.net.URL
 import java.time.Clock
 
-class Module extends AppModule:
+class Module extends AppModule {
 
   override def bindings(
     environment:   Environment,
@@ -45,3 +45,5 @@ class Module extends AppModule:
         new JwtValidator(issuer, audience, jwksUrl)
       ) ::
       Nil
+
+}

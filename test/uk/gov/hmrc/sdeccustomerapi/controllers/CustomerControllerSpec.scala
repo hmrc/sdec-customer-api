@@ -30,17 +30,18 @@ import uk.gov.hmrc.sdeccustomerapi.infrastructure.TokenValidator
 
 import scala.util.{Failure, Success, Try}
 
-class CustomerControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppPerSuite with BeforeAndAfterAll:
+class CustomerControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppPerSuite with BeforeAndAfterAll {
 
   private val testClaims =
     new JWTClaimsSet.Builder()
       .subject("test-user")
       .build()
 
-  private val stubTokenValidator = new TokenValidator:
+  private val stubTokenValidator = new TokenValidator {
     override def validate(token: String): Try[JWTClaimsSet] =
       if token == "valid-token" then Success(testClaims)
       else Failure(new RuntimeException("Invalid token"))
+  }
 
   override def fakeApplication(): Application =
     new GuiceApplicationBuilder()
@@ -58,19 +59,25 @@ class CustomerControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppP
   private def requestWithoutToken =
     FakeRequest("GET", "/customer")
 
-  "GET /customer" should:
-    "return 200 when a valid JWT token is supplied" in:
+  "GET /customer" should {
+    "return 200 when a valid JWT token is supplied" in {
       val result = controller.getCustomer(requestWithToken("valid-token"))
 
       status(result)          shouldBe Status.OK
       contentAsString(result) shouldBe "Hello customer"
+    }
 
-    "return 401 when the Authorization header is missing" in:
+    "return 401 when the Authorization header is missing" in {
       val result = controller.getCustomer(requestWithoutToken)
 
       status(result) shouldBe Status.UNAUTHORIZED
+    }
 
-    "return 401 when the token is invalid" in:
+    "return 401 when the token is invalid" in {
       val result = controller.getCustomer(requestWithToken("invalid-token"))
 
       status(result) shouldBe Status.UNAUTHORIZED
+    }
+  }
+
+}

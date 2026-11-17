@@ -20,5 +20,6 @@ import com.nimbusds.jwt.JWTClaimsSet
 
 import scala.util.Try
 
-trait TokenValidator:
+trait TokenValidator {
   def validate(token: String): Try[JWTClaimsSet]
+}
