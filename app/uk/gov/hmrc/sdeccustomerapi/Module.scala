@@ -16,34 +16,18 @@
 
 package uk.gov.hmrc.sdeccustomerapi
 
-import play.api.inject.{Binding, Module as AppModule}
-import play.api.{Configuration, Environment}
+import com.google.inject.AbstractModule
+import uk.gov.hmrc.sdeccustomerapi.config.AppConfig
 import uk.gov.hmrc.sdeccustomerapi.infrastructure.{JwtValidator, TokenValidator}
 
-import java.net.URL
 import java.time.Clock
 
-class Module extends AppModule {
+class Module extends AbstractModule {
 
-  override def bindings(
-    environment:   Environment,
-    configuration: Configuration
-  ): Seq[Binding[_]] =
-
-    val useSimulator =
-      configuration.getOptional[Boolean]("govOne.useSimulator").getOrElse(false)
-
-    val configPrefix =
-      if useSimulator then "govOneSimulator" else "govOne"
-
-    val issuer   = configuration.get[String](s"$configPrefix.issuer")
-    val audience = configuration.get[String](s"$configPrefix.audience")
-    val jwksUrl  = new URL(configuration.get[String](s"$configPrefix.jwksUrl"))
-
-    bind[Clock].toInstance(Clock.systemDefaultZone) ::
-      bind[TokenValidator].toInstance(
-        new JwtValidator(issuer, audience, jwksUrl)
-      ) ::
-      Nil
+  override def configure(): Unit = {
+    bind(classOf[AppConfig]).asEagerSingleton()
+    bind(classOf[Clock]).toInstance(Clock.systemDefaultZone)
+    bind(classOf[TokenValidator]).to(classOf[JwtValidator])
+  }
 
 }
