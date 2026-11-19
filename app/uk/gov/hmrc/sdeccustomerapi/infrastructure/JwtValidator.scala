@@ -19,36 +19,35 @@ package uk.gov.hmrc.sdeccustomerapi.infrastructure
 import com.nimbusds.jose.proc.*
 import com.nimbusds.jwt.*
 import com.nimbusds.jwt.proc.*
+import uk.gov.hmrc.sdeccustomerapi.config.AppConfig
 
-import java.net.URL
 import java.util.Set
+import javax.inject.Inject
 import scala.util.Try
 
-final class JwtValidator(
-  issuer:   String,
-  audience: String,
-  jwksUrl:  URL
+final class JwtValidator @Inject() (
+  appConfig: AppConfig
 ) extends TokenValidator {
 
-  private val keySelector =
+  private lazy val keySelector =
     JWSAlgorithmFamilyJWSKeySelector
-      .fromJWKSetURL[SecurityContext](jwksUrl)
+      .fromJWKSetURL[SecurityContext](appConfig.jwtConfig.jwksUrl)
 
-  private val processor =
+  private lazy val processor =
     new DefaultJWTProcessor[SecurityContext]()
 
-  private val claimsVerifier =
+  private lazy val claimsVerifier =
     new DefaultJWTClaimsVerifier[SecurityContext](
-      audience,
+      appConfig.jwtConfig.audience,
       new JWTClaimsSet.Builder()
-        .issuer(issuer)
+        .issuer(appConfig.jwtConfig.issuer)
         .build(),
       Set.of("exp")
     )
 
-  processor.setJWSKeySelector(keySelector)
-  processor.setJWTClaimsSetVerifier(claimsVerifier)
-
-  def validate(token: String): Try[JWTClaimsSet] =
+  def validate(token: String): Try[JWTClaimsSet] = {
+    processor.setJWSKeySelector(keySelector)
+    processor.setJWTClaimsSetVerifier(claimsVerifier)
     Try(processor.process(token, new SecurityContext {}))
+  }
 }
