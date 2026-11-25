@@ -7,6 +7,7 @@ object AppDependencies {
   private val frontendPlayVersion = "13.16.0"
   private val playTestVersion     = "7.0.2"
   private val scalaTestVersion    = "3.2.20"
+  private val scalaMockVersion    = "7.5.5"
   private val logbackVersion      = "1.4.11"
   private val jwtVersion          = "12.0.0"
   private val nimbusVersion       = "10.10"
@@ -22,7 +23,8 @@ object AppDependencies {
   val test = Seq(
     "uk.gov.hmrc"            %% "bootstrap-test-play-30" % bootstrapVersion % Test,
     "org.scalatestplus.play" %% "scalatestplus-play"     % playTestVersion  % Test,
-    "org.scalatest"          %% "scalatest"              % scalaTestVersion % Test
+    "org.scalatest"          %% "scalatest"              % scalaTestVersion % Test,
+    "org.scalamock"          %% "scalamock"              % scalaMockVersion % Test
   )
 
   val it = Seq.empty

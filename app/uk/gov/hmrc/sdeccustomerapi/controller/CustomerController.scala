@@ -14,17 +14,24 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.sdeccustomerapi.controllers
+package uk.gov.hmrc.sdeccustomerapi.controller
 
-import play.api.mvc.{Action, AnyContent, ControllerComponents}
+import play.api.libs.json.JsValue
+import play.api.mvc.{Action, ControllerComponents}
 import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
+import uk.gov.hmrc.sdeccustomerapi.infrastructure.AuthenticatedActionBuilder
 
 import javax.inject.{Inject, Singleton}
+import scala.concurrent.Future
 
-@Singleton
-class ThreadController @Inject() (cc: ControllerComponents) extends BackendController(cc) {
+@Singleton()
+class CustomerController @Inject() (
+  cc:         ControllerComponents,
+  authAction: AuthenticatedActionBuilder
+) extends BackendController(cc) {
 
-  def requestAccess: Action[AnyContent] =
-    Action(Ok)
-
+  def getCustomer: Action[JsValue] =
+    authAction.async { _ =>
+      Future.successful(Ok(s"Hello customer"))
+    }
 }
