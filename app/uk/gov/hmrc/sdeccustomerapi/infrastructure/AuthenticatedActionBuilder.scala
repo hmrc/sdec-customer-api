@@ -18,8 +18,9 @@ package uk.gov.hmrc.sdeccustomerapi.infrastructure
 
 import com.nimbusds.jwt.JWTClaimsSet
 import jakarta.inject.{Inject, Singleton}
-import play.api.libs.json.Json
+import play.api.libs.json.{JsValue, Json}
 import play.api.mvc.*
+import uk.gov.hmrc.sdeccustomerapi.model.SdecErrorResponse
 
 import scala.concurrent.Future
 
@@ -30,9 +31,9 @@ class AuthenticatedActionBuilder @Inject() (
 ) extends AbstractController(cc) {
 
   def async(
-    block: AuthenticatedRequest[AnyContent] => Future[Result]
-  ): Action[AnyContent] =
-    Action.async(cc.parsers.default) { request =>
+    block: AuthenticatedRequest[JsValue] => Future[Result]
+  ): Action[JsValue] =
+    Action.async(cc.parsers.tolerantJson) { request =>
       validateRequest(request) match {
         case Left(error) =>
           Future.successful(error)
@@ -48,7 +49,7 @@ class AuthenticatedActionBuilder @Inject() (
     }
 
   private def validateRequest(
-    request: Request[AnyContent]
+    request: Request[JsValue]
   ): Either[Result, JWTClaimsSet] =
     for {
       token  <- extractToken(request)
@@ -58,13 +59,13 @@ class AuthenticatedActionBuilder @Inject() (
                   .left
                   .map { _ =>
                     Unauthorized(
-                      Json.obj("message" -> "Invalid bearer token")
+                      Json.toJson(SdecErrorResponse("Invalid bearer token"))
                     )
                   }
     } yield claims
 
   private def extractToken(
-    request: Request[AnyContent]
+    request: Request[JsValue]
   ): Either[Result, String] =
     request.headers
       .get("Authorization")
@@ -72,9 +73,7 @@ class AuthenticatedActionBuilder @Inject() (
       .filter(_.nonEmpty)
       .toRight(
         Unauthorized(
-          Json.obj(
-            "message" -> "Bearer token not supplied"
-          )
+          Json.toJson(SdecErrorResponse("Bearer token not supplied"))
         )
       )
 }

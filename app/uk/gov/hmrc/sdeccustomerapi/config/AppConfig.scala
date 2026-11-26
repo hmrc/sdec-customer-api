@@ -16,30 +16,29 @@
 
 package uk.gov.hmrc.sdeccustomerapi.config
 
-import play.api.Configuration
+import uk.gov.hmrc.play.bootstrap.config.ServicesConfig
 
 import java.net.URI
 import javax.inject.{Inject, Singleton}
 
+trait AppConfigAlgebra {
+  def appName:                         String
+  def iPaasUpdateThreadDetailsBaseUrl: String
+  def jwtConfig:                       GovOneJwtConfig
+}
+
 @Singleton
-class AppConfig @Inject() (config: Configuration) {
+class AppConfig @Inject() (config: ServicesConfig) extends AppConfigAlgebra {
 
-  lazy val appName: String = config.get[String]("appName")
+  lazy val appName: String = config.getString("appName")
 
-  private lazy val isLocal: Boolean = config.getOptional[Boolean]("govOne.useLocal").getOrElse(false)
+  lazy val iPaasUpdateThreadDetailsBaseUrl: String = config.baseUrl("ipaas.updateThreadDetails")
 
-  lazy val jwtConfig: GovOneJwtConfig = if isLocal then {
+  lazy val jwtConfig: GovOneJwtConfig =
     GovOneJwtConfig(
-      config.get[String]("local.issuer"),
-      config.get[String]("local.audience"),
-      URI.create(config.get[String]("local.jwksUrl")).toURL
+      config.getString("govOne.jwt.issuer"),
+      config.getString("govOne.jwt.audience"),
+      URI.create(config.getString("govOne.jwt.jwksUrl")).toURL
     )
-  } else {
-    GovOneJwtConfig(
-      config.get[String]("remote.issuer"),
-      config.get[String]("remote.audience"),
-      URI.create(config.get[String]("remote.jwksUrl")).toURL
-    )
-  }
 
 }

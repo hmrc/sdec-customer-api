@@ -19,14 +19,14 @@ package uk.gov.hmrc.sdeccustomerapi.infrastructure
 import com.nimbusds.jose.proc.*
 import com.nimbusds.jwt.*
 import com.nimbusds.jwt.proc.*
-import uk.gov.hmrc.sdeccustomerapi.config.AppConfig
+import uk.gov.hmrc.sdeccustomerapi.config.AppConfigAlgebra
 
 import java.util.Set
 import javax.inject.Inject
 import scala.util.Try
 
 final class JwtValidator @Inject() (
-  appConfig: AppConfig
+  appConfig: AppConfigAlgebra
 ) extends TokenValidator {
 
   private lazy val keySelector =
