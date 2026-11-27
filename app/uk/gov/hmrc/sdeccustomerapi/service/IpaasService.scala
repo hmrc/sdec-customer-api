@@ -24,16 +24,25 @@ import javax.inject.Inject
 import scala.concurrent.Future
 
 trait IpaasServiceAlgebra {
-  def updateThreadDetails(threadReference: ThreadReference, threadUpdate: ThreadUpdate)(implicit
+  def getThreadDetails(threadReference: ThreadReference)(using
+    hc: HeaderCarrier
+  ): Future[Either[UpstreamErrorResponse, HttpResponse]]
+
+  def updateThreadDetails(threadReference: ThreadReference, threadUpdate: ThreadUpdate)(using
     hc: HeaderCarrier
   ): Future[Either[UpstreamErrorResponse, HttpResponse]]
 }
 
-class IpaasService @Inject (ipaasConnector: IpaasConnectorAlgebra) extends IpaasServiceAlgebra {
-  def updateThreadDetails(
-    threadReference: ThreadReference,
-    threadUpdate:    ThreadUpdate
-  )(implicit hc: HeaderCarrier): Future[Either[UpstreamErrorResponse, HttpResponse]] =
+class IpaasService @Inject() (ipaasConnector: IpaasConnectorAlgebra) extends IpaasServiceAlgebra {
 
+  def getThreadDetails(threadReference: ThreadReference)(using
+    hc: HeaderCarrier
+  ): Future[Either[UpstreamErrorResponse, HttpResponse]] =
+    ipaasConnector.getThreadDetails(threadReference)
+
+  def updateThreadDetails(threadReference: ThreadReference, threadUpdate: ThreadUpdate)(using
+    hc: HeaderCarrier
+  ): Future[Either[UpstreamErrorResponse, HttpResponse]] =
     ipaasConnector.updateThreadDetails(threadReference, threadUpdate)
+
 }

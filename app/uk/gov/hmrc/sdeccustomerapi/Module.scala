@@ -18,7 +18,7 @@ package uk.gov.hmrc.sdeccustomerapi
 
 import com.google.inject.AbstractModule
 import uk.gov.hmrc.sdeccustomerapi.config.{AppConfig, AppConfigAlgebra}
-import uk.gov.hmrc.sdeccustomerapi.connector.{IpaaSClient, IpaaSClientAlgebra, IpaasConnector, IpaasConnectorAlgebra}
+import uk.gov.hmrc.sdeccustomerapi.connector.{IpaasClient, IpaasClientAlgebra, IpaasConnector, IpaasConnectorAlgebra}
 import uk.gov.hmrc.sdeccustomerapi.infrastructure.{JwtValidator, TokenValidator}
 import uk.gov.hmrc.sdeccustomerapi.service.{IpaasService, IpaasServiceAlgebra}
 
@@ -32,7 +32,7 @@ class Module extends AbstractModule {
     bind(classOf[TokenValidator]).to(classOf[JwtValidator])
     bind(classOf[IpaasServiceAlgebra]).to(classOf[IpaasService])
     bind(classOf[IpaasConnectorAlgebra]).to(classOf[IpaasConnector])
-    bind(classOf[IpaaSClientAlgebra]).to(classOf[IpaaSClient])
+    bind(classOf[IpaasClientAlgebra]).to(classOf[IpaasClient])
   }
 
 }

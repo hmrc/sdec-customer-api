@@ -30,26 +30,28 @@ class AuthenticatedActionBuilder @Inject() (
   jwtValidator: TokenValidator
 ) extends AbstractController(cc) {
 
+  def asyncWithoutBody(
+    block: AuthenticatedRequest[Unit] => Future[Result]
+  ): Action[Unit] =
+    authenticated(cc.parsers.empty)(block)
+
   def async(
     block: AuthenticatedRequest[JsValue] => Future[Result]
   ): Action[JsValue] =
-    Action.async(cc.parsers.tolerantJson) { request =>
-      validateRequest(request) match {
-        case Left(error) =>
-          Future.successful(error)
+    authenticated(cc.parsers.tolerantJson)(block)
 
-        case Right(claims) =>
-          block(
-            new AuthenticatedRequest(
-              claims,
-              request
-            )
-          )
+  private def authenticated[A](parser: BodyParser[A])(
+    block: AuthenticatedRequest[A] => Future[Result]
+  ): Action[A] =
+    Action.async(parser) { request =>
+      validateRequest(request) match {
+        case Left(error)   => Future.successful(error)
+        case Right(claims) => block(new AuthenticatedRequest(claims, request))
       }
     }
 
   private def validateRequest(
-    request: Request[JsValue]
+    request: RequestHeader
   ): Either[Result, JWTClaimsSet] =
     for {
       token  <- extractToken(request)
@@ -65,7 +67,7 @@ class AuthenticatedActionBuilder @Inject() (
     } yield claims
 
   private def extractToken(
-    request: Request[JsValue]
+    request: RequestHeader
   ): Either[Result, String] =
     request.headers
       .get("Authorization")
@@ -76,4 +78,5 @@ class AuthenticatedActionBuilder @Inject() (
           Json.toJson(SdecErrorResponse("Bearer token not supplied"))
         )
       )
+
 }

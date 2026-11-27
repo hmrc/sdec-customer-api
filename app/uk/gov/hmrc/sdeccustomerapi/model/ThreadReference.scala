@@ -38,4 +38,13 @@ final case class ThreadReference(value: String) extends AnyVal
 
 object ThreadReference {
   given threadReferenceFormat: Format[ThreadReference] = Json.valueFormat[ThreadReference]
+
+  private val validFormat = "^[A-Z0-9]{14}$".r
+
+  def from(value: String): Either[String, ThreadReference] =
+    Option(value)
+      .filter(validFormat.matches)
+      .map(ThreadReference(_))
+      .toRight("Invalid thread reference")
+
 }

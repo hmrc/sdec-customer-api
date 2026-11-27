@@ -28,7 +28,7 @@ import uk.gov.hmrc.sdeccustomerapi.util.implicits.RequestSyntax.JsonRequestOps
 import uk.gov.hmrc.sdeccustomerapi.util.implicits.ResponseSyntax.ResponseOps
 
 import javax.inject.{Inject, Singleton}
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 @Singleton
 class ThreadController @Inject() (
@@ -39,17 +39,38 @@ class ThreadController @Inject() (
 
   private val logger = new RequestAwareLogger(this.getClass)
 
+  private given ExecutionContext = cc.executionContext
+
   def requestAccess: Action[AnyContent] = Action(Ok)
 
-  def updateThread(threadRef: String): Action[JsValue] =
-    authAction.async { request =>
-      implicit val headerCarrier: HeaderCarrier = hc(request)
-      request.bodyAs[ThreadUpdate] match {
-        case Right(update) =>
-          ipaasService.updateThreadDetails(ThreadReference(threadRef), update).withResponseHandling()
-        case Left(errorMessage) =>
-          logger.error(errorMessage.mkString(","))
-          Future.successful(BadRequest(Json.toJson(SdecErrorResponse("incompatible payload sent"))))
+  def getThread(threadReference: String): Action[Unit] =
+    authAction.asyncWithoutBody { request =>
+      given HeaderCarrier = hc(request)
+
+      ThreadReference.from(threadReference) match {
+        case Left(error) =>
+          Future.successful(BadRequest(Json.toJson(SdecErrorResponse(error))))
+        case Right(validReference) =>
+          ipaasService.getThreadDetails(validReference).flatMap {
+            case Left(upstreamError) if upstreamError.statusCode == NOT_FOUND =>
+              Future.successful(NotFound(Json.toJson(SdecErrorResponse("Thread not found"))))
+            case response =>
+              Future.successful(response).withResponseHandling()
+          }
       }
     }
+
+  def updateThread(threadReference: String): Action[JsValue] =
+    authAction.async { request =>
+      given HeaderCarrier = hc(request)
+
+      request.bodyAs[ThreadUpdate] match {
+        case Right(update) =>
+          ipaasService.updateThreadDetails(ThreadReference(threadReference), update).withResponseHandling()
+        case Left(errorMessage) =>
+          logger.warn(errorMessage.mkString(","))
+          Future.successful(BadRequest(Json.toJson(SdecErrorResponse("Incompatible payload sent"))))
+      }
+    }
+
 }

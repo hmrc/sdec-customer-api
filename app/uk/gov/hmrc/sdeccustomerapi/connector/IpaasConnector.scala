@@ -25,26 +25,43 @@ import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
 
 trait IpaasConnectorAlgebra {
+  def getThreadDetails(threadReference: ThreadReference)(using
+    hc: HeaderCarrier
+  ): Future[Either[UpstreamErrorResponse, HttpResponse]]
+
   def updateThreadDetails(
     threadReference: ThreadReference,
     threadUpdate:    ThreadUpdate
-  )(implicit hc: HeaderCarrier): Future[Either[UpstreamErrorResponse, HttpResponse]]
+  )(using hc: HeaderCarrier): Future[Either[UpstreamErrorResponse, HttpResponse]]
 }
-class IpaasConnector @Inject() (ipaaSClient: IpaaSClientAlgebra, appConfig: AppConfigAlgebra)(implicit
+
+class IpaasConnector @Inject() (ipaasClient: IpaasClientAlgebra, appConfig: AppConfigAlgebra)(using
   ec: ExecutionContext
 ) extends IpaasConnectorAlgebra {
 
   private val logger = new RequestAwareLogger(this.getClass)
 
-  def updateThreadDetails(
-    threadReference: ThreadReference,
-    threadUpdate:    ThreadUpdate
-  )(implicit hc: HeaderCarrier): Future[Either[UpstreamErrorResponse, HttpResponse]] = {
+  def getThreadDetails(threadReference: ThreadReference)(using
+    hc: HeaderCarrier
+  ): Future[Either[UpstreamErrorResponse, HttpResponse]] = {
 
-    val path = s"${appConfig.iPaasUpdateThreadDetailsBaseUrl}/api/v1/thread/${threadReference.value}"
-    ipaaSClient.put(s"$path", threadUpdate).recover { e =>
+    val path = s"${appConfig.ipaasThreadUrl}/api/v1/thread/${threadReference.value}"
+    ipaasClient.get(path).recover { e =>
       logger.error(e.getMessage)
       Right(HttpResponse(500))
     }
   }
+
+  def updateThreadDetails(
+    threadReference: ThreadReference,
+    threadUpdate:    ThreadUpdate
+  )(using hc: HeaderCarrier): Future[Either[UpstreamErrorResponse, HttpResponse]] = {
+
+    val path = s"${appConfig.ipaasThreadUrl}/api/v1/thread/${threadReference.value}"
+    ipaasClient.put(path, threadUpdate).recover { e =>
+      logger.error(e.getMessage)
+      Right(HttpResponse(500))
+    }
+  }
+
 }

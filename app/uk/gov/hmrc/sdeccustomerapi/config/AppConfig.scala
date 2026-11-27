@@ -22,9 +22,9 @@ import java.net.URI
 import javax.inject.{Inject, Singleton}
 
 trait AppConfigAlgebra {
-  def appName:                         String
-  def iPaasUpdateThreadDetailsBaseUrl: String
-  def jwtConfig:                       GovOneJwtConfig
+  def appName:        String
+  def ipaasThreadUrl: String
+  def jwtConfig:      GovOneJwtConfig
 }
 
 @Singleton
@@ -32,7 +32,9 @@ class AppConfig @Inject() (config: ServicesConfig) extends AppConfigAlgebra {
 
   lazy val appName: String = config.getString("appName")
 
-  lazy val iPaasUpdateThreadDetailsBaseUrl: String = config.baseUrl("ipaas.updateThreadDetails")
+  private lazy val ipaasBaseUrl: String = config.baseUrl(serviceName = "ipaas")
+
+  lazy val ipaasThreadUrl: String = ipaasBaseUrl + config.getConfString("ipaas.path", "")
 
   lazy val jwtConfig: GovOneJwtConfig =
     GovOneJwtConfig(

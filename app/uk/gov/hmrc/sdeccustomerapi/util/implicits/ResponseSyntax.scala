@@ -28,6 +28,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
 object ResponseSyntax {
+
   implicit class ResponseOps(f: Future[Either[UpstreamErrorResponse, HttpResponse]]) {
 
     private val logger = new RequestAwareLogger(this.getClass)
@@ -42,11 +43,12 @@ object ResponseSyntax {
             case OK =>
               if httpResponse.body.isEmpty then Ok
               else Ok(httpResponse.json)
-            case _ => InternalServerError(Json.toJson(SdecErrorResponse("unexpected response found", None)))
+            case _ => InternalServerError(Json.toJson(SdecErrorResponse("Unexpected response found", None)))
           }
       }.recover { e =>
-        logger.error(e.getMessage)
-        InternalServerError(Json.toJson(SdecErrorResponse("unexpected error", None)))
+        logger.warn(e.getMessage)
+        InternalServerError(Json.toJson(SdecErrorResponse("Unexpected error", None)))
       }
   }
+
 }

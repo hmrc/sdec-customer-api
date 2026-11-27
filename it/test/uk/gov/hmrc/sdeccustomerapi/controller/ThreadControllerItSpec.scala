@@ -17,7 +17,7 @@
 package uk.gov.hmrc.sdeccustomerapi.controller
 
 import com.github.tomakehurst.wiremock.client.WireMock
-import com.github.tomakehurst.wiremock.client.WireMock.{aResponse, putRequestedFor, urlEqualTo}
+import com.github.tomakehurst.wiremock.client.WireMock.{aResponse, getRequestedFor, putRequestedFor, urlEqualTo}
 import com.nimbusds.jwt.JWTClaimsSet
 import org.scalatest.matchers.must.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -57,10 +57,10 @@ class ThreadControllerItSpec extends AnyWordSpec with Matchers with WireMockHelp
         play.api.inject.bind[TokenValidator].to(jwtValidator)
       )
       .configure(
-        "microservice.services.ipaas.updateThreadDetails.port" -> server.port,
-        "microservice.services.auth.port"                      -> server.port,
-        "govOne.jwt.issuer"                                    -> s"http://localhost:${server.port}/",
-        "govOne.jwt.jwksUrl" -> s"http://localhost:${server.port}/.well-known/jwks.json"
+        "microservice.services.ipaas.port" -> server.port,
+        "microservice.services.auth.port"  -> server.port,
+        "govOne.jwt.issuer"                -> s"http://localhost:${server.port}/",
+        "govOne.jwt.jwksUrl"               -> s"http://localhost:${server.port}/.well-known/jwks.json"
       )
       .build()
 
@@ -76,30 +76,126 @@ class ThreadControllerItSpec extends AnyWordSpec with Matchers with WireMockHelp
     }
   }
 
-  "PUT /sdec-customer-api/thread:threadRef" must {
-    "return 200 when a thread update request is received and processed successfully" in {
-
-      val threadReference = "KL897865432211"
-      val threadUpdate    = """{
-                           |  "firstName": "Alice",
-                           |  "surname": "Johnson",
-                           |  "email": "alice.johnson@example.com",
-                           |  "mobile": "+44 7700 900123",
-                           |  "nino": "AB123456C",
-                           |  "caseReference": "CASE-2025-0789",
-                           |  "requestedItems": ["Item A", "Item B", "Item C"],
-                           |  "message": "Please provide the requested documents.",
-                           |  "requestedBy": {
-                           |    "day": 15,
-                           |    "month": 3,
-                           |    "year": 2025
-                           |  }
-                           |}""".stripMargin
+  "GET /sdec-customer-api/api/v1/thread/:threadReference" must {
+    "return 200 with the thread details when IPaaS finds the thread" in {
+      val threadReference = "THREAD12345678"
+      val threadDetails   = Json.obj("threadReference" -> threadReference)
 
       // ipaas stub
       server.stubFor(
         WireMock
-          .put(urlEqualTo(s"/api/v1/thread/$threadReference"))
+          .get(urlEqualTo(s"/sdec-ipaas-stub/api/v1/thread/$threadReference"))
+          .willReturn(
+            aResponse()
+              .withStatus(OK)
+              .withHeader("Content-Type", "application/json")
+              .withBody(threadDetails.toString)
+          )
+      )
+
+      val request =
+        FakeRequest("GET", s"/sdec-customer-api/api/v1/thread/$threadReference")
+          .withHeaders("Authorization" -> "Bearer token")
+
+      val result: Future[Result] = route(app, request).get
+
+      status(result) mustBe Status.OK
+      contentAsJson(result) mustBe threadDetails
+
+      server.verify(
+        getRequestedFor(urlEqualTo(s"/sdec-ipaas-stub/api/v1/thread/$threadReference"))
+      )
+    }
+
+    "return 404 when IPaaS does not find the thread" in {
+      val threadReference = "THREAD654321ZZ"
+
+      server.stubFor(
+        WireMock
+          .get(urlEqualTo(s"/sdec-ipaas-stub/api/v1/thread/$threadReference"))
+          .willReturn(aResponse().withStatus(NOT_FOUND))
+      )
+
+      val request =
+        FakeRequest("GET", s"/sdec-customer-api/api/v1/thread/$threadReference")
+          .withHeaders("Authorization" -> "Bearer token")
+
+      val result: Future[Result] = route(app, request).get
+
+      status(result) mustBe Status.NOT_FOUND
+      contentAsJson(result) mustBe Json.toJson(SdecErrorResponse("Thread not found"))
+    }
+
+    "return 400 without calling IPaaS when the thread reference is badly formatted" in {
+      val threadReference = "bad-ref"
+
+      val request =
+        FakeRequest("GET", s"/sdec-customer-api/api/v1/thread/$threadReference")
+          .withHeaders("Authorization" -> "Bearer token")
+
+      val result: Future[Result] = route(app, request).get
+
+      status(result) mustBe Status.BAD_REQUEST
+      contentAsJson(result) mustBe Json.toJson(SdecErrorResponse("Invalid thread reference"))
+
+      server.verify(
+        0,
+        getRequestedFor(urlEqualTo(s"/sdec-ipaas-stub/api/v1/thread/$threadReference"))
+      )
+    }
+
+    "return 500 when IPaaS fails" in {
+      val threadReference = "ERROR000000500"
+
+      server.stubFor(
+        WireMock
+          .get(urlEqualTo(s"/sdec-ipaas-stub/api/v1/thread/$threadReference"))
+          .willReturn(aResponse().withStatus(INTERNAL_SERVER_ERROR))
+      )
+
+      val request =
+        FakeRequest("GET", s"/sdec-customer-api/api/v1/thread/$threadReference")
+          .withHeaders("Authorization" -> "Bearer token")
+
+      val result: Future[Result] = route(app, request).get
+
+      status(result) mustBe Status.INTERNAL_SERVER_ERROR
+    }
+
+    "return 401 if no bearer token is sent" in {
+      val request = FakeRequest("GET", "/sdec-customer-api/api/v1/thread/THREAD1000AA11")
+
+      val result: Future[Result] = route(app, request).get
+
+      status(result) mustBe Status.UNAUTHORIZED
+      contentAsJson(result) mustBe Json.toJson(SdecErrorResponse("Bearer token not supplied"))
+    }
+  }
+
+  "PUT /sdec-customer-api/api/v1/thread/:threadReference" must {
+    "return 200 when a thread update request is received and processed successfully" in {
+
+      val threadReference = "KL897865432211"
+      val threadUpdate    = """{
+                              |  "firstName": "Alice",
+                              |  "surname": "Johnson",
+                              |  "email": "alice.johnson@example.com",
+                              |  "mobile": "+44 7700 900123",
+                              |  "nino": "AB123456C",
+                              |  "caseReference": "CASE-2025-0789",
+                              |  "requestedItems": ["Item A", "Item B", "Item C"],
+                              |  "message": "Please provide the requested documents.",
+                              |  "requestedBy": {
+                              |    "day": 15,
+                              |    "month": 3,
+                              |    "year": 2025
+                              |  }
+                              |}""".stripMargin
+
+      // ipaas stub
+      server.stubFor(
+        WireMock
+          .put(urlEqualTo(s"/sdec-ipaas-stub/api/v1/thread/$threadReference"))
           .willReturn(
             aResponse()
               .withStatus(OK)
@@ -108,7 +204,7 @@ class ThreadControllerItSpec extends AnyWordSpec with Matchers with WireMockHelp
       )
 
       val request =
-        FakeRequest("PUT", s"/sdec-customer-api/thread/$threadReference")
+        FakeRequest("PUT", s"/sdec-customer-api/api/v1/thread/$threadReference")
           .withHeaders(
             "Content-Type"  -> "application/json",
             "Authorization" -> "Bearer token"
@@ -120,17 +216,17 @@ class ThreadControllerItSpec extends AnyWordSpec with Matchers with WireMockHelp
       status(result) mustBe Status.OK
 
       server.verify(
-        putRequestedFor(urlEqualTo(s"/api/v1/thread/$threadReference"))
+        putRequestedFor(urlEqualTo(s"/sdec-ipaas-stub/api/v1/thread/$threadReference"))
       )
 
     }
-    "return 400 when a thread update request is received with an invalid payload" in {
 
+    "return 400 when a thread update request is received with an invalid payload" in {
       val threadReference = "KL897865432211"
       val invalidPayload  = """{"superhero":"Captain America"}""".stripMargin
 
       val request =
-        FakeRequest("PUT", s"/sdec-customer-api/thread/$threadReference")
+        FakeRequest("PUT", s"/sdec-customer-api/api/v1/thread/$threadReference")
           .withHeaders(
             "Content-Type"  -> "application/json",
             "Authorization" -> "Bearer token"
@@ -140,7 +236,7 @@ class ThreadControllerItSpec extends AnyWordSpec with Matchers with WireMockHelp
       val result: Future[Result] = route(app, request).get
 
       status(result) mustBe Status.BAD_REQUEST
-      contentAsJson(result) mustBe Json.toJson(SdecErrorResponse("incompatible payload sent"))
+      contentAsJson(result) mustBe Json.toJson(SdecErrorResponse("Incompatible payload sent"))
 
     }
     "return 401 if no bearer token is sent" in {
@@ -164,7 +260,7 @@ class ThreadControllerItSpec extends AnyWordSpec with Matchers with WireMockHelp
           |}""".stripMargin
 
       val request =
-        FakeRequest("PUT", s"/sdec-customer-api/thread/$threadReference")
+        FakeRequest("PUT", s"/sdec-customer-api/api/v1/thread/$threadReference")
           .withHeaders(
             "Content-Type" -> "application/json"
           )
@@ -188,10 +284,10 @@ class ThreadControllerItSpec extends AnyWordSpec with Matchers with WireMockHelp
             play.api.inject.bind[TokenValidator].to(jwtValidator)
           )
           .configure(
-            "microservice.services.ipaas.updateThreadDetails.port" -> server.port,
-            "microservice.services.auth.port"                      -> server.port,
-            "govOne.jwt.issuer"                                    -> s"http://localhost:${server.port}/",
-            "govOne.jwt.jwksUrl" -> s"http://localhost:${server.port}/.well-known/jwks.json"
+            "microservice.services.ipaas.port" -> server.port,
+            "microservice.services.auth.port"  -> server.port,
+            "govOne.jwt.issuer"                -> s"http://localhost:${server.port}/",
+            "govOne.jwt.jwksUrl"               -> s"http://localhost:${server.port}/.well-known/jwks.json"
           )
           .build()
 
@@ -214,7 +310,7 @@ class ThreadControllerItSpec extends AnyWordSpec with Matchers with WireMockHelp
           |}""".stripMargin
 
       val request =
-        FakeRequest("PUT", s"/sdec-customer-api/thread/$threadReference")
+        FakeRequest("PUT", s"/sdec-customer-api/api/v1/thread/$threadReference")
           .withHeaders(
             "Content-Type"  -> "application/json",
             "Authorization" -> "Bearer token"
@@ -225,7 +321,6 @@ class ThreadControllerItSpec extends AnyWordSpec with Matchers with WireMockHelp
 
       status(result) mustBe Status.UNAUTHORIZED
       contentAsJson(result) mustBe Json.toJson(SdecErrorResponse("Invalid bearer token"))
-
     }
   }
 
