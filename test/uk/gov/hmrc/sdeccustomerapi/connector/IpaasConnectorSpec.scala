@@ -35,10 +35,10 @@ class IpaasConnectorSpec extends AnyWordSpec with Matchers {
   private val mockAppConfig = new AppConfigAlgebra {
     override def appName: String = "app-name"
 
-    override def iPaasUpdateThreadDetailsBaseUrl: String = "http:localhost:3000"
+    override def ipaasThreadUrl: String = "http://localhost:3000"
 
     override def jwtConfig: GovOneJwtConfig =
-      GovOneJwtConfig("abc", "def", URI.create("http:localhost:3000/jwks").toURL)
+      GovOneJwtConfig("abc", "def", URI.create("http://localhost:3000/jwks").toURL)
   }
 
   implicit val ec: ExecutionContextExecutorService =
@@ -46,47 +46,78 @@ class IpaasConnectorSpec extends AnyWordSpec with Matchers {
 
   implicit val hc: HeaderCarrier = HeaderCarrier()
 
-  private val succesResponse = HttpResponse(200)
-  HttpResponse(500)
+  private val successResponse = HttpResponse(200)
 
-  private val ipaaSClientAlgebra = new IpaaSClientAlgebra {
-    override def post[A: Tag](path: String, body: A)(implicit
+  private val ipaasClientAlgebra = new IpaasClientAlgebra {
+    override def post[A: Tag](path: String, body: A)(using
       hc:     HeaderCarrier,
       writes: Writes[A]
-    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = fail("unexpected call to post method")
+    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = fail("Unexpected call to post method")
 
-    override def put[A: Tag](path: String, body: A)(implicit
+    override def put[A: Tag](path: String, body: A)(using
       hc:     HeaderCarrier,
       writes: Writes[A]
-    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(Right(succesResponse))
+    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(Right(successResponse))
 
-    override def get(path: String)(implicit hc: HeaderCarrier): Future[Either[UpstreamErrorResponse, HttpResponse]] =
-      fail("unexpected call to get method")
+    override def get(path: String)(using hc: HeaderCarrier): Future[Either[UpstreamErrorResponse, HttpResponse]] =
+      Future.successful(Right(successResponse))
   }
 
-  val underTest = new IpaasConnector(ipaaSClientAlgebra, appConfig = mockAppConfig)
+  val underTest = new IpaasConnector(ipaasClientAlgebra, appConfig = mockAppConfig)
 
   "IpaasService" must {
-    "facilitate a call to Ipaas to update thread details" in {
+    "facilitate a call to Ipaas to get thread details" in {
+      val threadReference = ThreadReference("KL897865432211")
+
+      underTest.getThreadDetails(threadReference).futureValue mustBe Right(successResponse)
+    }
+
+    "return a 500 if a call to Ipaas to get thread details fails" in {
+      val ipaasClientAlgebra = new IpaasClientAlgebra {
+        override def post[A: Tag](path: String, body: A)(using
+          hc:     HeaderCarrier,
+          writes: Writes[A]
+        ): Future[Either[UpstreamErrorResponse, HttpResponse]] = fail("unexpected call to post method")
+
+        override def put[A: Tag](path: String, body: A)(using
+          hc:     HeaderCarrier,
+          writes: Writes[A]
+        ): Future[Either[UpstreamErrorResponse, HttpResponse]] = fail("unexpected call to put method")
+
+        override def get(path: String)(using
+          hc: HeaderCarrier
+        ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.failed(new RuntimeException("bang bang!!"))
+      }
+
+      val underTest = new IpaasConnector(ipaasClientAlgebra, appConfig = mockAppConfig)
 
       val threadReference = ThreadReference("KL897865432211")
+
+      inside(underTest.getThreadDetails(threadReference).futureValue) {
+        case Left(upstreamErrorResponse) => fail(s"expected Right but got Left($upstreamErrorResponse)")
+        case Right(httpResponse)         => httpResponse.status mustBe 500
+      }
+    }
+
+    "facilitate a call to Ipaas to update thread details" in {
+      val threadReference = ThreadReference("KL897865432211")
       val threadUpdate    = ThreadUpdate(
-        firstName = Some("Luke"),
-        surname = Some("Skywalker"),
-        email = Some("luke@skywalker.com"),
+        firstName = Some("Jane"),
+        surname = Some("Smith"),
+        email = Some("jane.smith@example.com"),
         mobile = Some("1111111212121212"),
         nino = Some("ABCD1234"),
         caseReference = Some("CASE-REF-1"),
         requestedItems = List("P60"),
-        message = "Luke I am your father!!",
+        message = "Hello world!",
         requestedBy = RequestedBy(25, 12, 2026)
       )
 
-      underTest.updateThreadDetails(threadReference, threadUpdate).futureValue mustBe Right(succesResponse)
+      underTest.updateThreadDetails(threadReference, threadUpdate).futureValue mustBe Right(successResponse)
     }
-    "return a 500 if a call to Ipaas to update thread details fails" in {
 
-      val ipaaSClientAlgebra = new IpaaSClientAlgebra {
+    "return a 500 if a call to Ipaas to update thread details fails" in {
+      val ipaasClientAlgebra = new IpaasClientAlgebra {
         override def post[A: Tag](path: String, body: A)(implicit
           hc:     HeaderCarrier,
           writes: Writes[A]
@@ -102,18 +133,18 @@ class IpaasConnectorSpec extends AnyWordSpec with Matchers {
         ): Future[Either[UpstreamErrorResponse, HttpResponse]] = fail("unexpected call to get method")
       }
 
-      val underTest = new IpaasConnector(ipaaSClientAlgebra, appConfig = mockAppConfig)
+      val underTest = new IpaasConnector(ipaasClientAlgebra, appConfig = mockAppConfig)
 
       val threadReference = ThreadReference("KL897865432211")
       val threadUpdate    = ThreadUpdate(
-        firstName = Some("Luke"),
-        surname = Some("Skywalker"),
-        email = Some("luke@skywalker.com"),
+        firstName = Some("Jane"),
+        surname = Some("Smith"),
+        email = Some("jane.smith@example.com"),
         mobile = Some("1111111212121212"),
         nino = Some("ABCD1234"),
         caseReference = Some("CASE-REF-1"),
         requestedItems = List("P60"),
-        message = "Luke I am your father!!",
+        message = "Hello world!",
         requestedBy = RequestedBy(25, 12, 2026)
       )
 
@@ -123,4 +154,5 @@ class IpaasConnectorSpec extends AnyWordSpec with Matchers {
       }
     }
   }
+
 }

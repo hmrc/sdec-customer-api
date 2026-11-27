@@ -19,6 +19,7 @@ package uk.gov.hmrc.sdeccustomerapi.model
 import play.api.libs.json.{Format, Json}
 
 case class SdecErrorResponse(message: String, downstreamStatus: Option[Int] = None)
+
 object SdecErrorResponse {
-  given ipaasErrorResponeFormat: Format[SdecErrorResponse] = Json.format[SdecErrorResponse]
+  given ipaasErrorResponseFormat: Format[SdecErrorResponse] = Json.format[SdecErrorResponse]
 }

@@ -1,7 +1,8 @@
 # microservice specific routes
 
-GET        /customer                    uk.gov.hmrc.sdeccustomerapi.controller.CustomerController.getCustomer
+GET         /customer                              uk.gov.hmrc.sdeccustomerapi.controller.CustomerController.getCustomer
 
-POST       /thread-access               uk.gov.hmrc.sdeccustomerapi.controller.ThreadController.requestAccess
+POST        /thread-access                         uk.gov.hmrc.sdeccustomerapi.controller.ThreadController.requestAccess
 
-PUT        /thread/:threadRef    uk.gov.hmrc.sdeccustomerapi.controller.ThreadController.updateThread(threadRef: String)
+GET         /api/v1/thread/:threadReference        uk.gov.hmrc.sdeccustomerapi.controller.ThreadController.getThread(threadReference: String)
+PUT         /api/v1/thread/:threadReference        uk.gov.hmrc.sdeccustomerapi.controller.ThreadController.updateThread(threadReference: String)

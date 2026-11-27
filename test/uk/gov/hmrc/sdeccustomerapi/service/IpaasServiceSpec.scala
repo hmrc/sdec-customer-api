@@ -29,8 +29,13 @@ class IpaasServiceSpec extends AnyWordSpec with Matchers {
 
   implicit val hc: HeaderCarrier = HeaderCarrier()
 
-  private val ipaasResponse  = HttpResponse(200)
+  private val ipaasResponse = HttpResponse(200)
+
   private val ipaasConnector = new IpaasConnectorAlgebra {
+    override def getThreadDetails(threadReference: ThreadReference)(using
+      hc: HeaderCarrier
+    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(Right(ipaasResponse))
+
     override def updateThreadDetails(threadReference: ThreadReference, threadUpdate: ThreadUpdate)(implicit
       hc: HeaderCarrier
     ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(Right(ipaasResponse))
@@ -38,23 +43,33 @@ class IpaasServiceSpec extends AnyWordSpec with Matchers {
 
   val underTest = new IpaasService(ipaasConnector)
 
+  ".getThreadDetails" must {
+    "facilitate a call to Ipaas to get thread details" in {
+
+      val threadReference = ThreadReference("THREAD123456AA")
+
+      underTest.getThreadDetails(threadReference).futureValue mustBe Right(ipaasResponse)
+    }
+  }
+
   ".updateThreadDetails" must {
     "facilitate a call to Ipaas to update thread details" in {
 
       val threadReference = ThreadReference("KL897865432211")
       val threadUpdate    = ThreadUpdate(
-        firstName = Some("Luke"),
-        surname = Some("Skywalker"),
-        email = Some("luke@skywalker.com"),
+        firstName = Some("Maria"),
+        surname = Some("Smith"),
+        email = Some("maria.smith@example.com"),
         mobile = Some("1111111212121212"),
         nino = Some("ABCD1234"),
         caseReference = Some("CASE-REF-1"),
         requestedItems = List("P60"),
-        message = "Luke I am your father!!",
+        message = "Hello world!",
         requestedBy = RequestedBy(25, 12, 2026)
       )
 
       underTest.updateThreadDetails(threadReference, threadUpdate).futureValue mustBe Right(ipaasResponse)
     }
   }
+
 }

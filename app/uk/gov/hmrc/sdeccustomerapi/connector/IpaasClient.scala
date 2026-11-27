@@ -28,29 +28,39 @@ import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse, StringContextOps, Upstream
 import javax.inject.Inject
 import scala.concurrent.{ExecutionContext, Future}
 
-trait IpaaSClientAlgebra {
-  def post[A: Tag](path: String, body: A)(implicit
-    hc:     HeaderCarrier,
-    writes: Writes[A]
-  ): Future[Either[UpstreamErrorResponse, HttpResponse]]
-
-  def put[A: Tag](path: String, body: A)(implicit
-    hc:     HeaderCarrier,
-    writes: Writes[A]
-  ): Future[Either[UpstreamErrorResponse, HttpResponse]]
-
-  def get(path: String)(implicit
+trait IpaasClientAlgebra {
+  def get(path: String)(using
     hc: HeaderCarrier
+  ): Future[Either[UpstreamErrorResponse, HttpResponse]]
+
+  def post[A: Tag](path: String, body: A)(using
+    hc:     HeaderCarrier,
+    writes: Writes[A]
+  ): Future[Either[UpstreamErrorResponse, HttpResponse]]
+
+  def put[A: Tag](path: String, body: A)(using
+    hc:     HeaderCarrier,
+    writes: Writes[A]
   ): Future[Either[UpstreamErrorResponse, HttpResponse]]
 }
 
-class IpaaSClient @Inject() (httpClientV2: HttpClientV2)(implicit ec: ExecutionContext) extends IpaaSClientAlgebra {
+class IpaasClient @Inject() (httpClientV2: HttpClientV2)(using ec: ExecutionContext) extends IpaasClientAlgebra {
 
   private val commonHeaders: List[(String, String)] = List(
     CONTENT_TYPE -> JSON
   )
 
-  def post[A: Tag](path: String, body: A)(implicit
+  def get(path: String)(using
+    hc: HeaderCarrier
+  ): Future[Either[UpstreamErrorResponse, HttpResponse]] = {
+    val requestHeaders = hc.headers(Seq("CorrelationId")) ++ commonHeaders
+    httpClientV2
+      .get(url"$path")
+      .setHeader(requestHeaders*)
+      .execute[Either[UpstreamErrorResponse, HttpResponse]]
+  }
+
+  def post[A: Tag](path: String, body: A)(using
     hc:     HeaderCarrier,
     writes: Writes[A]
   ): Future[Either[UpstreamErrorResponse, HttpResponse]] = {
@@ -63,7 +73,7 @@ class IpaaSClient @Inject() (httpClientV2: HttpClientV2)(implicit ec: ExecutionC
       .execute[Either[UpstreamErrorResponse, HttpResponse]]
   }
 
-  def put[A: Tag](path: String, body: A)(implicit
+  def put[A: Tag](path: String, body: A)(using
     hc:     HeaderCarrier,
     writes: Writes[A]
   ): Future[Either[UpstreamErrorResponse, HttpResponse]] = {
@@ -76,14 +86,4 @@ class IpaaSClient @Inject() (httpClientV2: HttpClientV2)(implicit ec: ExecutionC
       .execute[Either[UpstreamErrorResponse, HttpResponse]]
   }
 
-  def get(path: String)(implicit
-    hc: HeaderCarrier
-  ): Future[Either[UpstreamErrorResponse, HttpResponse]] = {
-    val requestHeaders = hc.headers(Seq("CorrelationId")) ++ commonHeaders
-    httpClientV2
-      .get(url"$path")
-      .setHeader(requestHeaders*)
-      .execute[Either[UpstreamErrorResponse, HttpResponse]]
-
-  }
 }

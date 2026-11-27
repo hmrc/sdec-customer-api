@@ -24,8 +24,9 @@ import play.api.libs.json.Json
 import play.api.test.FakeRequest
 import play.api.test.Helpers.*
 import uk.gov.hmrc.http.{HeaderCarrier, HttpResponse, UpstreamErrorResponse}
+import uk.gov.hmrc.sdeccustomerapi.fixtures.ThreadFixtures
 import uk.gov.hmrc.sdeccustomerapi.infrastructure.{AuthenticatedActionBuilder, TokenValidator}
-import uk.gov.hmrc.sdeccustomerapi.model.{ThreadReference, ThreadUpdate}
+import uk.gov.hmrc.sdeccustomerapi.model.{SdecErrorResponse, ThreadReference, ThreadUpdate}
 import uk.gov.hmrc.sdeccustomerapi.service.IpaasServiceAlgebra
 
 import java.util.Date
@@ -49,18 +50,43 @@ class ThreadControllerSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  private val ipaasService = new IpaasServiceAlgebra {
-    override def updateThreadDetails(threadReference: ThreadReference, threadUpdate: ThreadUpdate)(implicit
-      hc: HeaderCarrier
-    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(Right(HttpResponse(200)))
-  }
-
   private lazy val authAction =
     new AuthenticatedActionBuilder(
       cc,
       jwtValidator
     )
-  private val controller = new ThreadController(stubControllerComponents(), authAction, ipaasService)
+
+  private val ipaasServiceFound: IpaasServiceAlgebra = new IpaasServiceAlgebra {
+    override def getThreadDetails(threadReference: ThreadReference)(using
+      hc: HeaderCarrier
+    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(ThreadFixtures.ipaasFound)
+
+    override def updateThreadDetails(threadReference: ThreadReference, threadUpdate: ThreadUpdate)(using
+      hc: HeaderCarrier
+    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(Right(HttpResponse(200)))
+  }
+
+  private val ipaasServiceNotFound: IpaasServiceAlgebra = new IpaasServiceAlgebra {
+    override def getThreadDetails(threadReference: ThreadReference)(using
+      hc: HeaderCarrier
+    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(ThreadFixtures.ipaasNotFound)
+
+    override def updateThreadDetails(threadReference: ThreadReference, threadUpdate: ThreadUpdate)(using
+      hc: HeaderCarrier
+    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(Right(HttpResponse(200)))
+  }
+
+  private val ipaasServiceFailing: IpaasServiceAlgebra = new IpaasServiceAlgebra {
+    override def getThreadDetails(threadReference: ThreadReference)(using
+      hc: HeaderCarrier
+    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(ThreadFixtures.ipaasServerError)
+
+    override def updateThreadDetails(threadReference: ThreadReference, threadUpdate: ThreadUpdate)(using
+      hc: HeaderCarrier
+    ): Future[Either[UpstreamErrorResponse, HttpResponse]] = Future.successful(Right(HttpResponse(200)))
+  }
+
+  private val controller = new ThreadController(cc, authAction, ipaasServiceFound)
 
   "POST /thread-access" must {
     "return 200 when a thread access request is received" in {
@@ -71,6 +97,48 @@ class ThreadControllerSpec extends AnyWordSpec with Matchers {
       val result = controller.requestAccess(request)
 
       status(result) mustBe Status.OK
+    }
+  }
+
+  "GET /api/v1/thread/:threadReference" must {
+    val path    = s"/api/v1/thread/${ThreadFixtures.validReference}"
+    val request = FakeRequest("GET", path).withHeaders("Authorization" -> "Bearer token").withBody(())
+
+    "return 200 with the thread details when IPaaS finds the thread" in {
+      val result = controller.getThread(ThreadFixtures.validReference)(request)
+
+      status(result) mustBe Status.OK
+      contentAsJson(result) mustBe ThreadFixtures.threadDetails
+    }
+
+    "return 404 when IPaaS does not find the thread" in {
+      val controller = new ThreadController(cc, authAction, ipaasServiceNotFound)
+
+      val result = controller.getThread(ThreadFixtures.validReference)(request)
+
+      status(result) mustBe Status.NOT_FOUND
+      contentAsJson(result) mustBe Json.toJson(SdecErrorResponse("Thread not found"))
+    }
+
+    "return 400 when the thread reference is badly formatted" in {
+      val result = controller.getThread(ThreadFixtures.invalidReference)(request)
+
+      status(result) mustBe Status.BAD_REQUEST
+      contentAsJson(result) mustBe Json.toJson(SdecErrorResponse("Invalid thread reference"))
+    }
+
+    "return 500 when IPaaS fails" in {
+      val controller = new ThreadController(cc, authAction, ipaasServiceFailing)
+
+      val result = controller.getThread(ThreadFixtures.validReference)(request)
+
+      status(result) mustBe Status.INTERNAL_SERVER_ERROR
+    }
+
+    "return 401 when no bearer token is sent" in {
+      val result = controller.getThread(ThreadFixtures.validReference)(FakeRequest("GET", path).withBody(()))
+
+      status(result) mustBe Status.UNAUTHORIZED
     }
   }
 
