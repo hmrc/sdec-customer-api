@@ -20,6 +20,7 @@ import com.google.inject.AbstractModule
 import uk.gov.hmrc.sdeccustomerapi.config.{AppConfig, AppConfigAlgebra}
 import uk.gov.hmrc.sdeccustomerapi.connector.{IpaaSClient, IpaaSClientAlgebra, IpaasConnector, IpaasConnectorAlgebra}
 import uk.gov.hmrc.sdeccustomerapi.infrastructure.{JwtValidator, TokenValidator}
+import uk.gov.hmrc.sdeccustomerapi.service.{DefaultFileMetadataService, FileMetadataService}
 import uk.gov.hmrc.sdeccustomerapi.service.{IpaasService, IpaasServiceAlgebra}
 
 import java.time.Clock
@@ -30,6 +31,7 @@ class Module extends AbstractModule {
     bind(classOf[AppConfigAlgebra]).to(classOf[AppConfig]).asEagerSingleton()
     bind(classOf[Clock]).toInstance(Clock.systemDefaultZone)
     bind(classOf[TokenValidator]).to(classOf[JwtValidator])
+    bind(classOf[FileMetadataService]).to(classOf[DefaultFileMetadataService])
     bind(classOf[IpaasServiceAlgebra]).to(classOf[IpaasService])
     bind(classOf[IpaasConnectorAlgebra]).to(classOf[IpaasConnector])
     bind(classOf[IpaaSClientAlgebra]).to(classOf[IpaaSClient])
